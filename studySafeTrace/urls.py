@@ -1,6 +1,8 @@
 from django.urls import path
-from orders import views
+from studySafeTrace import views
 
 urlpatterns = [
-    path('', views.view),
+    path('contacts',views.contact_view),
+    path('venues',views.venue_view),
+    path('',views.base_view),
 ]

@@ -2,87 +2,156 @@ from django.shortcuts import render
 from django.http import HttpResponse
 import json
 import requests
-from datetime import date, timedelta
 # Create your views here.
 
-filter_date=date.today()
-data_Quarantine_centres=data_Capunit=[]
-data_usedunit=data_PIU=data_avause=data_nonclose=0
-data_consistent=False
-data_date=''
-sort_centres = {}
-sorted_centre = []
+records_json = {"resource":"https://blooming-badlands-56728.herokuapp.com/api/records","section":1,"format":"json","filters":[[1,"eq",["event"]]]}
+records_obj_json = json.dumps(records_json)
+records_resp = requests.get("https://blooming-badlands-56728.herokuapp.com/api/records", params={'q': records_obj_json})
+records_result = records_resp.json()
+record_entry=[]
+record_exit=[]
+footprint_id=[]
+footprint_place=[]
 
-def run(fdates):
-    global data_Quarantine_centres,data_Capunit,data_usedunit,data_PIU,data_avause,data_consistent,data_date,data_nonclose,connection_status,data_status,sort_centres,sorted_centre
-    dates=fdates.strftime('%d/%m/%Y')
+for record in records_result:
+    if(record["event"]=="Entry"):
+        record_entry.append(record)
+for record_en in record_entry:
+    time_place = {}
+    id_footprint = {}
+    time_id = {}
+    place_footprint={}
+    hku_id = record_en["hku_id"]
+    venueCode = record_en["venueCode"]
+    entryDay = ""
+    for i in range(len(record_en["date_time"])):
+        if(i<10):
+            entryDay+=record_en["date_time"][i]
+    time_place[entryDay]=venueCode
+    id_footprint[hku_id]=time_place
+    time_id[entryDay]=hku_id
+    place_footprint[venueCode]=time_id
 
-    #in centre
-    centre_json = {"resource":"http://www.chp.gov.hk/files/misc/occupancy_of_quarantine_centres_eng.csv","section":1,"format":"json","filters":[[1,"eq",[dates]]]}
-    centre_obj_json = json.dumps(centre_json)
-    centre_resp = requests.get("https://api.data.gov.hk/v2/filter", params={'q': centre_obj_json})
-    centre_result = centre_resp.json()
+    footprint_id.append(id_footprint)
+    footprint_place.append(place_footprint)
 
-    #number of types
-    types_json = {"resource":"http://www.chp.gov.hk/files/misc/no_of_confines_by_types_in_quarantine_centres_eng.csv","section":1,"format":"json","filters":[[1,"eq",[dates]]]}
-    types_obj_json = json.dumps(types_json)
-    types_resp = requests.get("https://api.data.gov.hk/v2/filter", params={'q': types_obj_json})
-    types_result = types_resp.json()
 
-    if(centre_result==[] or types_result==[]):
-        newdate=fdates- timedelta(days = 1)
-        if((filter_date.day-newdate.day) == 8):
-            data_status = False
+
+subject = '3025704501'
+date = "2022-05-05"
+date_split = date.split("-")
+end_year = int(date_split[0])
+end_month = int(date_split[1])
+end_day = int(date_split[2])
+if(end_day<=2):
+    if(end_month==1):
+        if(end_day ==1):
+            start_month = 12
+            start_year = end_year-1
+            mid_month = 12
+            mid_year = end_year -1
         else:
-            run(newdate)
+            start_month=12
+            start_year = end_year-1
+            mid_month = end_month
+            mid_year = end_year
     else:
-        data_date=dates
-        for i in centre_result:
-            data_Quarantine_centres.append(i['Quarantine centres'])
-            data_Capunit.append(i['Capacity (unit)'])
-            data_usedunit+=int(i['Current unit in use'])
-            data_PIU+=int(i['Current person in use'])
-            data_avause+=int(i['Ready to be used (unit)'])
-            sort_centres.update({i['Quarantine centres']:i['Capacity (unit)']})
-        sort_centres= sorted(sort_centres.items(), key=lambda x: x[1], reverse=True)
-        sort_centres = dict((x, y) for x, y in sort_centres)
-        count=0
-        for u in sort_centres:
-            if(count<3):
-                sorted_centre.append({"name":u,"units":str(sort_centres[u])})
-                count+=1
-        data_nonclose = types_result[0]['Current number of non-close contacts']
-        if(data_PIU== (int(types_result[0]['Current number of close contacts of confirmed cases'])+data_nonclose)):
-            data_consistent = True
+        if(end_day ==1):
+            start_month = end_month-1
+            start_year = end_year
+            mid_month = end_month-1
+            mid_year = end_year
         else:
-            data_consistent = False
-        connection_status = (centre_resp.ok and types_resp.ok)
-        data_status = True
+            start_month=end_month-1
+            start_year = end_year
+            mid_month = end_month
+            mid_year = end_year
+    if(start_month==1 or start_month==3 or start_month==5 or start_month==7 or start_month==8 or start_month==10 or start_month==12):
+        if(end_day==2):
+            start_day=31
+            mid_day = 1
+        if(end_day==1):
+            start_day=30
+            mid_day = 31
+    elif(start_month==4 or start_month==6 or start_month==9 or start_month==11):
+        if(end_day==2):
+            start_day=30
+            mid_day = 1
+        if(end_day==1):
+            start_day=29
+            mid_day = 30
+    elif(start_month==2):
+        if((end_year%4)==0):
+            if(end_day==2):
+                start_day=29
+                mid_day = 1
+            if(end_day==1):
+                start_day=28
+                mid_day = 29
+        else:
+            if(end_day==2):
+                start_day=28
+                mid_day = 1
+            if(end_day==1):
+                start_day=27
+                mid_day = 28
+else:
+    start_day = end_day-2
+    start_month = end_month
+    start_year = end_year
+    mid_day = end_day-1
+    mid_month = end_month
+    mid_year = end_year
+if(start_day<10):
+    start_day="0"+str(start_day)
+if(start_month<10):
+    start_month="0"+str(start_month)
+if(mid_day<10):
+    mid_day="0"+str(mid_day)
+if(mid_month<10):
+    mid_month="0"+str(mid_month)
+if(end_day<10):
+    end_day="0"+str(end_day)
+if(end_month<10):
+    end_month="0"+str(end_month)
+start_date=str(start_year)+"-"+str(start_month)+"-"+str(start_day)
+mid_date=str(mid_year)+"-"+str(mid_month)+"-"+str(mid_day)
+end_date=str(end_year)+"-"+str(end_month)+"-"+str(end_day)
+
+contacts=[]
+venues=[]
+visit_footprint=[]
+for visit in footprint_id:
+    if(subject in visit):
+        if(start_date in visit[subject]):
+            venues.append(visit[subject][start_date])
+            visit_footprint.append(visit[subject])
+        elif(mid_date in visit[subject]):
+            venues.append(visit[subject][mid_date])
+        elif(end_date in visit[subject]):
+            venues.append(visit[subject][end_date])
+venues=list( dict.fromkeys(venues))
+
+for place in venues:
+    for meet in footprint_place:
+        if(place in meet):
+            if(start_date in meet[place]):
+                contacts.append(meet[place][start_date])
+            elif(mid_date in meet[place]):
+                contacts.append(meet[place][mid_date])
+            elif(end_date in meet[place]):
+                contacts.append(meet[place][end_date])
+
+contacts=list( dict.fromkeys(contacts))
+
+print(contacts)
 
 
+def contact_view(request):
+    return render(request, 'contacts.html',{"subject":subject,"date":date,"contacts":contacts})
 
-def view(request):
-    global data_Quarantine_centres,data_Capunit,data_usedunit,data_PIU,data_avause,data_consistent,data_date,data_nonclose,connection_status,data_status,sort_centres,sorted_centre
-    run(filter_date)
-    data = {
-    "date": data_date,
-    "units_in_use": data_usedunit,
-    "units_available": str(data_avause),
-    "persons_quarantined": str(data_PIU),
-    "non_close_contacts": str(data_nonclose),
-    "count_consistent": data_consistent
-    }
-    centres = sorted_centre
-    connected = connection_status
-    #"connected" : connection_status,
-    #"has_data" : data_status
-    has_data = data_status
+def venue_view(request):
+    return render(request, 'venues.html',{"subject":subject,"date":date,"venues":venues})
 
-    data_Quarantine_centres=data_Capunit=[]
-    data_usedunit=data_PIU=data_avause=data_nonclose=0
-    data_consistent=False
-    data_date=''
-    sort_centres = {}
-    sorted_centre = []
-
-    return render(request, 'dashboard3.html', {"data":data,"connected":connected,"has_data":has_data,"centres":centres})
+def base_view(request):
+    return render(request, 'base.html',{"subject":subject,"date":date})
