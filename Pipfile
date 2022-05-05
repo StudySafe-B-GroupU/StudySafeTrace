@@ -8,6 +8,7 @@ django = "~=4.0"
 gunicorn = "*"
 requests = "*"
 environs = {extras = ["django"], version = "*"}
+psycopg2-binary = "*"
 
 [dev-packages]
 
